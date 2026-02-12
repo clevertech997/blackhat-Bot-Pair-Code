@@ -1,7 +1,7 @@
 {
-  "name": "𝑩𝑳𝑨𝑪𝑲✦𝑯𝑨𝑻✦𝗕𝗢𝗧",
+  "name": "blackhat-bot",
   "version": "1.0.0",
-  "description": "𝑩𝑳𝑨𝑪𝑲✦𝑯𝑨𝑻✦𝗕𝗢𝗧 - WhatsApp Pair Code Generator",
+  "description": "BLACKHAT-BOT - WhatsApp Pair Code Generator",
   "main": "index.js",
   "type": "module",
   "engines": {
@@ -11,7 +11,7 @@
     "start": "node index.js",
     "build": "echo 'No build step required'"
   },
-  "author": "𝑨𝒏𝒐𝒏𝒚𝒎𝒐𝒖𝒔 𝑼𝒔𝒆",
+  "author": "Anonymous Use",
   "license": "ISC",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.21",
