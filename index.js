@@ -1,28 +1,28 @@
 import express from 'express';
-import path from 'path';
+import bodyParser from 'body-parser';
 import { fileURLToPath } from 'url';
-import events from 'events';
+import path from 'path';
 
-// Import routers
+// Importing the modules
 import pairRouter from './pair.js';
 import qrRouter from './qr.js';
+import QRCode from 'qrcode';
 
 const app = express();
 
-// Increase listeners limit (avoid MaxListeners warning)
-events.EventEmitter.defaultMaxListeners = 500;
-
-// Resolve __dirname in ES Modules
+// Resolve the current directory path in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 8000;
 
-// Middleware (Express built-in instead of body-parser)
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+import('events').then(events => {
+    events.EventEmitter.defaultMaxListeners = 500;
+});
 
-// Serve static files
+// Middleware
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
 
 // Routes
@@ -33,14 +33,8 @@ app.get('/', (req, res) => {
 app.use('/pair', pairRouter);
 app.use('/qr', qrRouter);
 
-// Start server
 app.listen(PORT, () => {
-    console.log(`
-YouTube: @𝑨𝒏𝒐𝒏𝒚𝒎𝒐𝒖𝒔 𝑼𝒔𝒆
-GitHub: @clevertech997
-
-Server running on http://localhost:${PORT}
-`);
+    console.log(`YoutTube: @mr_unique_hacker\n\nGitHub: @mruniquehacker\n\nServer running on http://localhost:${PORT}`);
 });
 
 export default app;

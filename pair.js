@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
 
         try {
             const { version, isLatest } = await fetchLatestBaileysVersion();
-            let BLACKHAT_BOT = makeWASocket({
+            let blackhatbot = makeWASocket({
                 version,
                 auth: {
                     creds: state.creds,
@@ -60,7 +60,7 @@ router.get('/', async (req, res) => {
                 maxRetries: 5,
             });
 
-            BLACKHAT_BOT.ev.on('connection.update', async (update) => {
+            blackhatbot.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, isNewLogin, isOnline } = update;
 
                 if (connection === 'open') {
@@ -72,14 +72,14 @@ router.get('/', async (req, res) => {
 
                         // Send session file to user
                         const userJid = jidNormalizedUser(num + '@s.whatsapp.net');
-                        await BLACKHAT_BOT.sendMessage(userJid, {
+                        await blackhatbot.sendMessage(userJid, {
                             document: sessionKnight,
                             mimetype: 'application/json',
                             fileName: 'creds.json'
                         });
                         console.log("📄 Session file sent successfully");
                         // Send warning message
-                        await BLACKHAT_BOT.sendMessage(userJid, {
+                        await blackhatbot.sendMessage(userJid, {
                             text: `⚠️Do not share this file with anybody⚠️\n 
 ╔═════════════════════════╗
  🖤  *BLACK HAT BOT*  🖤
@@ -92,7 +92,7 @@ Do NOT share this file with anyone.
 Anyone with this file can access your WhatsApp.
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  🛡️ Powered by Clever Tech
+┃  🛡️ Powered by anonymous user
 ┃  ⚡ Secure • Fast • Stable
 ┃  © 2026 BLACK HAT BOT
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n`
@@ -154,7 +154,7 @@ Anyone with this file can access your WhatsApp.
                 }
             }
 
-            KnightBot.ev.on('creds.update', saveCreds);
+            blackhatbot.ev.on('creds.update', saveCreds);
         } catch (err) {
             console.error('Error initializing session:', err);
             if (!res.headersSent) {
