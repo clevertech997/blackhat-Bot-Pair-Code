@@ -1,7 +1,7 @@
 {
-  "name": "BLACKHAT BOT",
+  "name": "BLACKHAT-BOT",
   "version": "1.0.0",
-  "description": "BLACKHAT BOT - WhatsApp Pair Code Generator",
+  "description": "BLACKHAT-BOT - WhatsApp Pair Code Generator",
   "main": "index.js",
   "type": "module",
   "engines": {
