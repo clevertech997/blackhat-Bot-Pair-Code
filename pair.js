@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
 
         try {
             const { version, isLatest } = await fetchLatestBaileysVersion();
-            let blackhatbot = makeWASocket({
+            let blackhatBot = makeWASocket({
                 version,
                 auth: {
                     creds: state.creds,
@@ -60,7 +60,7 @@ router.get('/', async (req, res) => {
                 maxRetries: 5,
             });
 
-            blackhatbot.ev.on('connection.update', async (update) => {
+            blackhatBot.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, isNewLogin, isOnline } = update;
 
                 if (connection === 'open') {
@@ -68,18 +68,20 @@ router.get('/', async (req, res) => {
                     console.log("📱 Sending session file to user...");
                     
                     try {
-                        const sessionKnight = fs.readFileSync(dirs + '/creds.json');
+                        const sessionblackhat = fs.readFileSync(dirs + '/creds.json');
 
                         // Send session file to user
                         const userJid = jidNormalizedUser(num + '@s.whatsapp.net');
-                        await blackhatbot.sendMessage(userJid, {
+                        await blackhatBot.sendMessage(userJid, {
                             document: sessionKnight,
                             mimetype: 'application/json',
                             fileName: 'creds.json'
                         });
                         console.log("📄 Session file sent successfully");
+
+                        // Send video thumbnail with caption
                         // Send warning message
-                        await blackhatbot.sendMessage(userJid, {
+                        await blackhatBot.sendMessage(userJid, {
                             text: `⚠️Do not share this file with anybody⚠️\n 
 ╔═════════════════════════╗
  🖤  *BLACK HAT BOT*  🖤
@@ -92,10 +94,12 @@ Do NOT share this file with anyone.
 Anyone with this file can access your WhatsApp.
 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  🛡️ Powered by anonymous user
+┃  🛡️ Powered by Clever Tech
 ┃  ⚡ Secure • Fast • Stable
 ┃  © 2026 BLACK HAT BOT
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n`
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+🚀 Thank you for choosing BLACK HAT BOT\n\n`
                         });
                         console.log("⚠️ Warning message sent successfully");
 
@@ -134,13 +138,13 @@ Anyone with this file can access your WhatsApp.
                 }
             });
 
-            if (!KnightBot.authState.creds.registered) {
+            if (!blackhatBot.authState.creds.registered) {
                 await delay(3000); // Wait 3 seconds before requesting pairing code
                 num = num.replace(/[^\d+]/g, '');
                 if (num.startsWith('+')) num = num.substring(1);
 
                 try {
-                    let code = await KnightBot.requestPairingCode(num);
+                    let code = await blackhatBot.requestPairingCode(num);
                     code = code?.match(/.{1,4}/g)?.join('-') || code;
                     if (!res.headersSent) {
                         console.log({ num, code });
@@ -154,7 +158,7 @@ Anyone with this file can access your WhatsApp.
                 }
             }
 
-            blackhatbot.ev.on('creds.update', saveCreds);
+            blackhatBot.ev.on('creds.update', saveCreds);
         } catch (err) {
             console.error('Error initializing session:', err);
             if (!res.headersSent) {
