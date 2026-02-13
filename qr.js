@@ -7,15 +7,11 @@ import {
     useMultiFileAuthState,
     makeCacheableSignalKeyStore,
     Browsers,
-    jidNormalizedUser,
     fetchLatestBaileysVersion
 } from '@whiskeysockets/baileys'
 
 const router = express.Router()
-
-/* ===============================
-   🖤 BLACK HAT BOT QR SYSTEM
-================================= */
+const BOT_NAME = "BLACKHAT BOT"
 
 // Safely remove folder
 function removeSession(path) {
@@ -37,13 +33,8 @@ router.get('/', async (req, res) => {
     const baseDir = './qr_sessions'
     const sessionDir = `${baseDir}/session_${sessionId}`
 
-    if (!fs.existsSync(baseDir)) {
-        fs.mkdirSync(baseDir, { recursive: true })
-    }
-
-    if (!fs.existsSync(sessionDir)) {
-        fs.mkdirSync(sessionDir, { recursive: true })
-    }
+    if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true })
+    if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true })
 
     let responseSent = false
     let qrGenerated = false
@@ -51,114 +42,70 @@ router.get('/', async (req, res) => {
     const maxReconnect = 3
 
     try {
-
         const { state, saveCreds } = await useMultiFileAuthState(sessionDir)
         const { version } = await fetchLatestBaileysVersion()
 
-        const socketConfig = {
+        const sock = makeWASocket({
             version,
             logger: pino({ level: 'silent' }),
             browser: Browsers.windows('Chrome'),
             auth: {
                 creds: state.creds,
-                keys: makeCacheableSignalKeyStore(
-                    state.keys,
-                    pino({ level: 'fatal' })
-                )
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
             },
-            markOnlineOnConnect: false,
-            generateHighQualityLinkPreview: false,
-            defaultQueryTimeoutMs: 60000,
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 30000
-        }
-
-        let sock = makeWASocket(socketConfig)
+            printQRInTerminal: false,
+            markOnlineOnConnect: false
+        })
 
         const handleConnection = async (update) => {
             const { connection, lastDisconnect, qr } = update
 
-            /* ========= QR GENERATION ========= */
+            // ===== QR GENERATION =====
             if (qr && !qrGenerated) {
                 qrGenerated = true
-
                 const qrDataURL = await QRCode.toDataURL(qr)
 
                 if (!responseSent) {
                     responseSent = true
                     return res.json({
                         qr: qrDataURL,
-                        message: "🖤 BLACK HAT BOT QR Generated!",
+                        message: `🖤✨ ${BOT_NAME} QR Generated ✨🖤`,
                         instructions: [
-                            "1. Open WhatsApp",
-                            "2. Go to Settings",
-                            "3. Tap Linked Devices",
-                            "4. Scan this QR Code"
-                        ]
+                            "1️⃣ Open WhatsApp",
+                            "2️⃣ Go to Settings",
+                            "3️⃣ Tap Linked Devices",
+                            "4️⃣ Scan this QR Code"
+                        ],
+                        successMessage: `
+╔══════════════════════════════╗
+       🖤✨ *${BOT_NAME}* ✨🖤
+╚══════════════════════════════╝
+
+✅ *SESSION GENERATED SUCCESSFULLY* 🎉
+
+⚠️ *SECURITY WARNING* ⚠️
+🔒 Do NOT share this file with anyone!
+🚫 Anyone with this file can access your WhatsApp.
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🛡️ Powered by Clever Tech
+┃ ⚡ Secure • Fast • Stable
+┃ © 2026 ${BOT_NAME}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+🚀 Enjoy using *${BOT_NAME}
+`
                     })
                 }
             }
 
-            /* ========= CONNECTED ========= */
+            // ===== CONNECTED =====
             if (connection === 'open') {
-
-                console.log("✅ BLACK HAT BOT Connected")
-
-                try {
-                    const sessionFile = fs.readFileSync(`${sessionDir}/creds.json`)
-                    const userJid = sock.authState.creds.me?.id
-                        ? jidNormalizedUser(sock.authState.creds.me.id)
-                        : null
-
-                    if (userJid) {
-
-                        // Send session file
-                        await sock.sendMessage(userJid, {
-                            document: sessionFile,
-                            mimetype: 'application/json',
-                            fileName: 'creds.json'
-                        })
-
-                        // Send styled message
-                        await sock.sendMessage(userJid, {
-                            text: `
-╔══════════════════════════╗
-   🖤  *BLACK HAT BOT*  🖤
-╚══════════════════════════╝
-
-✅ *QR SESSION CONNECTED*
-
-⚠️ SECURITY WARNING
-Do NOT share this session file.
-Anyone with it can control your WhatsApp.
-
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 🛡️ Secure Connection Established
-┃ ⚡ Fast • Stable • Private
-┃ © 2026 Clever Tech
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-🚀 Thank you for using BLACK HAT BOT
-`
-                        })
-
-                        console.log("📄 Session sent to", userJid)
-                    }
-
-                } catch (err) {
-                    console.error("❌ Send session error:", err)
-                }
-
-                // Cleanup after 15 seconds
-                setTimeout(() => {
-                    console.log("🧹 Cleaning session...")
-                    removeSession(sessionDir)
-                }, 15000)
+                console.log("✅ BLACKHAT BOT Connected")
             }
 
-            /* ========= CONNECTION CLOSED ========= */
+            // ===== CONNECTION CLOSED =====
             if (connection === 'close') {
-
                 const statusCode = lastDisconnect?.error?.output?.statusCode
 
                 if (statusCode === 401) {
@@ -166,12 +113,18 @@ Anyone with it can control your WhatsApp.
                     removeSession(sessionDir)
                 } else {
                     reconnectAttempts++
-
                     if (reconnectAttempts <= maxReconnect) {
                         console.log(`🔁 Reconnecting (${reconnectAttempts}/${maxReconnect})`)
-                        sock = makeWASocket(socketConfig)
-                        sock.ev.on('connection.update', handleConnection)
-                        sock.ev.on('creds.update', saveCreds)
+                        sock.ev.removeAllListeners()
+                        makeWASocket({
+                            version,
+                            logger: pino({ level: 'silent' }),
+                            browser: Browsers.windows('Chrome'),
+                            auth: {
+                                creds: state.creds,
+                                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
+                            }
+                        })
                     } else {
                         console.log("❌ Max reconnect reached")
                         if (!responseSent) {
@@ -206,8 +159,7 @@ Anyone with it can control your WhatsApp.
     }
 })
 
-/* ========= GLOBAL ERROR FILTER ========= */
-
+// Global uncaught exception filter
 process.on('uncaughtException', (err) => {
     const ignore = [
         "conflict",
@@ -220,9 +172,7 @@ process.on('uncaughtException', (err) => {
         "statusCode: 515",
         "statusCode: 503"
     ]
-
     if (ignore.some(e => String(err).includes(e))) return
-
     console.error("🚨 Uncaught Exception:", err)
 })
 

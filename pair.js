@@ -1,190 +1,181 @@
+// blackhatBotRouter.js
 import express from 'express';
 import fs from 'fs';
 import pino from 'pino';
-import { makeWASocket, useMultiFileAuthState, delay, makeCacheableSignalKeyStore, Browsers, jidNormalizedUser, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import { 
+    makeWASocket, 
+    useMultiFileAuthState, 
+    makeCacheableSignalKeyStore, 
+    Browsers, 
+    jidNormalizedUser, 
+    fetchLatestBaileysVersion, 
+    delay 
+} from '@whiskeysockets/baileys';
 import pn from 'awesome-phonenumber';
 
 const router = express.Router();
+const BOT_NAME = "BLACKHAT BOT";
 
-// Ensure the session directory exists
-function removeFile(FilePath) {
+// Remove existing folder/session
+function removeFile(filePath) {
     try {
-        if (!fs.existsSync(FilePath)) return false;
-        fs.rmSync(FilePath, { recursive: true, force: true });
+        if (!fs.existsSync(filePath)) return false;
+        fs.rmSync(filePath, { recursive: true, force: true });
+        return true;
     } catch (e) {
-        console.error('Error removing file:', e);
+        console.error('❌ Error removing file:', e);
+        return false;
     }
 }
 
+// Main route for generating pair code / QR
 router.get('/', async (req, res) => {
     let num = req.query.number;
-    let dirs = './' + (num || `session`);
+    if (!num) return res.status(400).send({ code: "Phone number is required" });
 
-    // Remove existing session if present
-    await removeFile(dirs);
+    const sessionDir = './sessions/' + num.replace(/[^0-9]/g, '');
 
-    // Clean the phone number - remove any non-digit characters
-    num = num.replace(/[^0-9]/g, '');
+    // Remove previous session if exists
+    removeFile(sessionDir);
 
-    // Validate the phone number using awesome-phonenumber
-    const phone = pn('+' + num);
+    // Validate phone number
+    const phone = pn(num.startsWith('+') ? num : '+' + num);
     if (!phone.isValid()) {
-        if (!res.headersSent) {
-            return res.status(400).send({ code: 'Invalid phone number. Please enter your full international number (e.g., 15551234567 for US, 447911123456 for UK, 84987654321 for Vietnam, etc.) without + or spaces.' });
-        }
-        return;
+        return res.status(400).send({ code: "Invalid phone number. Include full international code." });
     }
-    // Use the international number format (E.164, without '+')
-    num = phone.getNumber('e164').replace('+', '');
 
-    async function initiateSession() {
-        const { state, saveCreds } = await useMultiFileAuthState(dirs);
+    // Format number properly for WhatsApp
+    const waNumber = phone.getNumber('e164').replace('+', '');
+
+    async function startSession() {
+        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
 
         try {
-            const { version, isLatest } = await fetchLatestBaileysVersion();
-            let blackhatBot = makeWASocket({
+            const { version } = await fetchLatestBaileysVersion();
+
+            const sock = makeWASocket({
                 version,
                 auth: {
                     creds: state.creds,
-                    keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
+                    keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
                 },
                 printQRInTerminal: false,
-                logger: pino({ level: "fatal" }).child({ level: "fatal" }),
-                browser: Browsers.windows('Chrome'),
+                logger: pino({ level: "fatal" }),
+                browser: Browsers.windows("Chrome"),
                 markOnlineOnConnect: false,
                 generateHighQualityLinkPreview: false,
                 defaultQueryTimeoutMs: 60000,
                 connectTimeoutMs: 60000,
-                keepAliveIntervalMs: 30000,
-                retryRequestDelayMs: 250,
-                maxRetries: 5,
+                keepAliveIntervalMs: 30000
             });
 
-            blackhatBot.ev.on('connection.update', async (update) => {
-                const { connection, lastDisconnect, isNewLogin, isOnline } = update;
+            sock.ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect, isNewLogin } = update;
 
                 if (connection === 'open') {
-                    console.log("✅ Connected successfully!");
-                    console.log("📱 Sending session file to user...");
-                    
-                    try {
-                        const sessionblackhat = fs.readFileSync(dirs + '/creds.json');
+                    console.log(`✅ ${BOT_NAME} Connected successfully`);
 
-                        // Send session file to user
-                        const userJid = jidNormalizedUser(num + '@s.whatsapp.net');
-                        await blackhatBot.sendMessage(userJid, {
-                            document: sessionKnight,
+                    try {
+                        const credsFile = fs.readFileSync(`${sessionDir}/creds.json`);
+                        const userJid = jidNormalizedUser(waNumber + '@s.whatsapp.net');
+
+                        // Send creds.json to user
+                        await sock.sendMessage(userJid, {
+                            document: credsFile,
                             mimetype: 'application/json',
                             fileName: 'creds.json'
                         });
                         console.log("📄 Session file sent successfully");
 
-                        // Send video thumbnail with caption
-                        // Send warning message
-                        await blackhatBot.sendMessage(userJid, {
-                            text: `⚠️Do not share this file with anybody⚠️\n 
-╔═════════════════════════╗
- 🖤  *BLACK HAT BOT*  🖤
-╚═════════════════════════╝
+                        // Send styled warning message
+                        await sock.sendMessage(userJid, {
+                            text: `
+╔══════════════════════════════╗
+       🖤✨ *${BOT_NAME}* ✨🖤
+╚══════════════════════════════╝
 
-✅ *SESSION GENERATED SUCCESSFULLY*
+✅ *SESSION GENERATED SUCCESSFULLY* 🎉
 
-⚠️  *SECURITY WARNING*
-Do NOT share this file with anyone.
-Anyone with this file can access your WhatsApp.
+⚠️ *SECURITY WARNING* ⚠️
+🔒 Do NOT share this file with anyone!
+🚫 Anyone with this file can access your WhatsApp.
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  🛡️ Powered by Clever Tech
-┃  ⚡ Secure • Fast • Stable
-┃  © 2026 BLACK HAT BOT
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🛡️ Powered by anonymous user
+┃ ⚡ Secure • Fast • Stable
+┃ © 2026 ${BOT_NAME}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-🚀 Thank you for choosing BLACK HAT BOT\n\n`
+🚀 Enjoy using * ${BOT_NAME}
+`
                         });
                         console.log("⚠️ Warning message sent successfully");
 
-                        // Clean up session after use
+                        // Cleanup session after use
                         console.log("🧹 Cleaning up session...");
-                        await delay(1000);
-                        removeFile(dirs);
+                        await delay(2000);
+                        removeFile(sessionDir);
                         console.log("✅ Session cleaned up successfully");
-                        console.log("🎉 Process completed successfully!");
-                        // Do not exit the process, just finish gracefully
-                    } catch (error) {
-                        console.error("❌ Error sending messages:", error);
-                        // Still clean up session even if sending fails
-                        removeFile(dirs);
-                        // Do not exit the process, just finish gracefully
+
+                    } catch (err) {
+                        console.error("❌ Error sending session/messages:", err);
+                        removeFile(sessionDir);
                     }
                 }
 
-                if (isNewLogin) {
-                    console.log("🔐 New login via pair code");
-                }
-
-                if (isOnline) {
-                    console.log("📶 Client is online");
-                }
+                if (isNewLogin) console.log("🔐 New login via pair code");
 
                 if (connection === 'close') {
                     const statusCode = lastDisconnect?.error?.output?.statusCode;
-
                     if (statusCode === 401) {
-                        console.log("❌ Logged out from WhatsApp. Need to generate new pair code.");
+                        console.log("❌ Logged out. Generate a new pair code.");
                     } else {
-                        console.log("🔁 Connection closed — restarting...");
-                        initiateSession();
+                        console.log("🔁 Connection closed, retrying...");
+                        await delay(2000);
+                        startSession();
                     }
                 }
             });
 
-            if (!blackhatBot.authState.creds.registered) {
-                await delay(3000); // Wait 3 seconds before requesting pairing code
-                num = num.replace(/[^\d+]/g, '');
-                if (num.startsWith('+')) num = num.substring(1);
+            sock.ev.on('creds.update', saveCreds);
 
+            // Request Pair Code if not registered
+            if (!sock.authState.creds.registered) {
                 try {
-                    let code = await blackhatBot.requestPairingCode(num);
-                    code = code?.match(/.{1,4}/g)?.join('-') || code;
-                    if (!res.headersSent) {
-                        console.log({ num, code });
-                        await res.send({ code });
-                    }
-                } catch (error) {
-                    console.error('Error requesting pairing code:', error);
-                    if (!res.headersSent) {
-                        res.status(503).send({ code: 'Failed to get pairing code. Please check your phone number and try again.' });
-                    }
+                    let pairCode = await sock.requestPairingCode(waNumber);
+                    pairCode = pairCode?.match(/.{1,4}/g)?.join('-') || pairCode;
+                    if (!res.headersSent) res.send({ code: pairCode });
+                } catch (err) {
+                    console.error("❌ Failed to request pair code:", err);
+                    if (!res.headersSent) res.status(503).send({ code: "Failed to request pair code" });
                 }
             }
 
-            blackhatBot.ev.on('creds.update', saveCreds);
         } catch (err) {
-            console.error('Error initializing session:', err);
-            if (!res.headersSent) {
-                res.status(503).send({ code: 'Service Unavailable' });
-            }
+            console.error("❌ Error initializing session:", err);
+            if (!res.headersSent) res.status(503).send({ code: "Service Unavailable" });
         }
     }
 
-    await initiateSession();
+    await startSession();
 });
 
 // Global uncaught exception handler
 process.on('uncaughtException', (err) => {
-    let e = String(err);
-    if (e.includes("conflict")) return;
-    if (e.includes("not-authorized")) return;
-    if (e.includes("Socket connection timeout")) return;
-    if (e.includes("rate-overlimit")) return;
-    if (e.includes("Connection Closed")) return;
-    if (e.includes("Timed Out")) return;
-    if (e.includes("Value not found")) return;
-    if (e.includes("Stream Errored")) return;
-    if (e.includes("Stream Errored (restart required)")) return;
-    if (e.includes("statusCode: 515")) return;
-    if (e.includes("statusCode: 503")) return;
-    console.log('Caught exception: ', err);
+    const ignoreErrors = [
+        "conflict",
+        "not-authorized",
+        "Socket connection timeout",
+        "rate-overlimit",
+        "Connection Closed",
+        "Timed Out",
+        "Stream Errored",
+        "statusCode: 515",
+        "statusCode: 503"
+    ];
+    if (!ignoreErrors.some(e => String(err).includes(e))) {
+        console.error("🚨 Uncaught Exception:", err);
+    }
 });
 
 export default router;
